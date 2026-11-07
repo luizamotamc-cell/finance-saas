@@ -2,21 +2,22 @@ import { PartialType } from '@nestjs/swagger';
 import { TxType } from '@prisma/client';
 import { Type } from 'class-transformer';
 import {
-  IsDateString, IsEnum, IsInt, IsOptional, IsString, IsUUID, Max, MaxLength, Min,
+  IsDateString, IsEnum, IsInt, IsOptional, IsString, IsUUID, Matches, Max, MaxLength, Min,
 } from 'class-validator';
 
 export class CreateTransactionDto {
   @IsUUID() accountId: string;
   @IsUUID() categoryId: string;
 
-  /** em centavos, positivo */
-  @IsInt() @Min(1)
+   /** em centavos, positivo (máx. ~R$ 20 milhões) */
+  @IsInt() @Min(1) @Max(2_000_000_000)
   amount: number;
 
   @IsEnum(TxType)
   type: TxType;
 
-  /** YYYY-MM-DD */
+  /** YYYY-MM-DD (sem hora nem fuso) */
+  @Matches(/^\d{4}-\d{2}-\d{2}$/, { message: 'date deve estar no formato YYYY-MM-DD' })
   @IsDateString({ strict: true })
   date: string;
 

@@ -1,11 +1,20 @@
 export const brl = (cents: number) =>
   (cents / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
-/** "1.234,56" ou "1234.56" -> 123456 (centavos). Retorna NaN se inválido. */
+/** "1.234,56", "1234.56" ou "1.234" -> centavos. Retorna NaN se inválido. */
 export function toCents(input: string): number {
-  const s = input.trim();
-  const normalized = s.includes(',') ? s.replace(/\./g, '').replace(',', '.') : s;
-  return Math.round(Number(normalized) * 100);
+  let s = input.trim();
+  if (!s) return 0;
+  if (s.includes(',')) {
+    s = s.replace(/\./g, '').replace(',', '.');
+  } else if (/^\d{1,3}(\.\d{3})+$/.test(s)) {
+    s = s.replace(/\./g, ''); // "1.234" = mil duzentos e trinta e quatro
+  }
+  const m = /^(\d+)(?:\.(\d+))?$/.exec(s);
+  if (!m) return NaN;
+  const frac = m[2] ?? '';
+  const cents = Number(m[1]) * 100 + Number((frac + '00').slice(0, 2));
+  return cents + (Number(frac[2] ?? 0) >= 5 ? 1 : 0); // meio centavo arredonda para cima
 }
 
 export const centsToInput = (cents: number) => (cents / 100).toFixed(2).replace('.', ',');

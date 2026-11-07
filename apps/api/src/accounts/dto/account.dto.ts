@@ -1,6 +1,6 @@
 import { PartialType } from '@nestjs/swagger';
 import { AccountType } from '@prisma/client';
-import { IsEnum, IsInt, IsNotEmpty, IsOptional, IsString, MaxLength } from 'class-validator';
+import { IsEnum, IsInt, IsNotEmpty, IsOptional, IsString, Max, MaxLength, Min } from 'class-validator';
 
 export class CreateAccountDto {
   @IsString() @IsNotEmpty() @MaxLength(60)
@@ -10,7 +10,7 @@ export class CreateAccountDto {
   type: AccountType;
 
   /** em centavos (pode ser negativo) */
-  @IsOptional() @IsInt()
+  @IsOptional() @IsInt() @Min(-2_000_000_000) @Max(2_000_000_000)
   initialBalance?: number;
 }
 
