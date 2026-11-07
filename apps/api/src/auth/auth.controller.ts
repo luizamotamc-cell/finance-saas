@@ -1,8 +1,11 @@
 import { Body, Controller, Get, HttpCode, Post } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
 import { AuthUser, CurrentUser, Public } from '../common/decorators';
 import { AuthService } from './auth.service';
 import { LoginDto, RefreshDto, RegisterDto } from './dto/auth.dto';
+
+const MINUTE = 60_000;
 
 @ApiTags('auth')
 @ApiBearerAuth()
@@ -10,17 +13,17 @@ import { LoginDto, RefreshDto, RegisterDto } from './dto/auth.dto';
 export class AuthController {
   constructor(private auth: AuthService) {}
 
-  @Public() @Post('register')
+  @Public() @Throttle({ default: { limit: 5, ttl: MINUTE } }) @Post('register')
   register(@Body() dto: RegisterDto) {
     return this.auth.register(dto);
   }
 
-  @Public() @HttpCode(200) @Post('login')
+  @Public() @Throttle({ default: { limit: 5, ttl: MINUTE } }) @HttpCode(200) @Post('login')
   login(@Body() dto: LoginDto) {
     return this.auth.login(dto);
   }
 
-  @Public() @HttpCode(200) @Post('refresh')
+  @Public() @Throttle({ default: { limit: 30, ttl: MINUTE } }) @HttpCode(200) @Post('refresh')
   refresh(@Body() dto: RefreshDto) {
     return this.auth.refresh(dto.refreshToken);
   }

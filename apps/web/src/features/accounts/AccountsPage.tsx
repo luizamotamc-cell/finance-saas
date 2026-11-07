@@ -88,6 +88,10 @@ export default function AccountsPage() {
         <Button onClick={() => setCreating(true)}>Nova conta</Button>
       </PageHeader>
       <ErrorText>{error}</ErrorText>
+      <p className="mb-4 text-sm text-muted">
+        Saldo = saldo inicial + receitas − despesas. Para informar o dinheiro que você já tinha,
+        clique em <strong className="text-ink">Editar</strong> e preencha o saldo inicial.
+      </p>
       {isLoading && <p className="text-sm text-muted">Carregando...</p>}
       {data?.length === 0 && <Empty>Você ainda não tem contas. Crie uma para registrar transações.</Empty>}
 
