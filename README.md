@@ -1,13 +1,16 @@
 # Caixa: SaaS de gestão financeira
 
+![CI](https://github.com/luizamotamc-cell/finance-saas/actions/workflows/ci.yml/badge.svg)
+
 Aplicação full stack para controle financeiro pessoal: cadastro e login, contas, categorias, transações e um dashboard com gráficos.
 
-> **Projeto em desenvolvimento.** O código ainda não foi totalmente testado em execução. Se encontrar algum erro, abra uma *issue*.
+> **Projeto em desenvolvimento.** A API e o front têm testes automatizados que rodam a cada envio (veja [Testes](#testes)), mas ainda é um beta: use-o junto com os seus próprios registros. Se encontrar algum erro, abra uma *issue*.
 
 ## Funcionalidades
 
 - Cadastro e login com JWT (access token de 15 minutos e refresh token de 7 dias, com rotação)
-- Cada usuário vê apenas os próprios dados
+- Cada usuário vê apenas os próprios dados (coberto por testes automatizados)
+- Limite de tentativas: 5 por minuto no login e no cadastro, por IP
 - Contas (conta corrente, carteira, cartão de crédito, poupança) com saldo calculado
 - Categorias de receita e despesa, personalizáveis (com cor)
 - Transações: criar, editar, excluir, filtrar por mês, conta, categoria e tipo, com paginação
@@ -21,7 +24,8 @@ Aplicação full stack para controle financeiro pessoal: cadastro e login, conta
 | Front-end | React 18, TypeScript, Vite, Tailwind CSS, TanStack Query, React Router, React Hook Form, Zod, Recharts |
 | Back-end | NestJS 10, TypeScript, Prisma, Passport JWT, class-validator, Swagger |
 | Banco de dados | PostgreSQL 16 |
-| Infraestrutura | Docker e Docker Compose |
+| Testes | Jest e Supertest (API), Vitest (front) |
+| Infraestrutura | Docker e Docker Compose, GitHub Actions (CI) |
 
 ## Estrutura do projeto
 
@@ -30,9 +34,11 @@ finance-saas/
 ├── docker-compose.yml
 ├── .env.example
 ├── README.md
+├── .github/workflows/ci.yml   # testes a cada push
 └── apps/
     ├── api/                  # NestJS + Prisma
     │   ├── prisma/schema.prisma
+    │   ├── test/             # testes e2e (isolamento, regras, auth, limite)
     │   └── src/
     │       ├── auth/
     │       ├── accounts/
@@ -59,10 +65,12 @@ docker compose up --build
 ```
 
 - Aplicação: http://localhost:8080
-- API: http://localhost:3000/api
-- Documentação (Swagger): http://localhost:3000/api/docs
+- API: http://localhost:8080/api (a API e o banco não ficam expostos direto: só o nginx, na porta 8080)
+- Documentação (Swagger): http://localhost:8080/api/docs
 
-Para parar: `Ctrl + C`. Para apagar também os dados do banco: `docker compose down -v`.
+Os dois segredos do `.env` são obrigatórios: sem eles o Docker se recusa a subir.
+
+Para parar: `Ctrl + C` e depois `docker compose down`. Isso mantém os dados. Para apagar também os dados do banco: `docker compose down -v`.
 
 ### Opção 2: sem Docker (Node.js e PostgreSQL instalados)
 
@@ -107,6 +115,27 @@ Acesse http://localhost:5173. O Vite encaminha as chamadas de `/api` para a API 
 
 > **Windows:** se o PowerShell bloquear o `npm` com a mensagem "a execução de scripts foi desabilitada", use o **Prompt de Comando (cmd)** ou rode `Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned`.
 
+## Testes
+
+Os testes da API usam um banco PostgreSQL **separado** (eles criam usuários de verdade). Com o Docker rodando:
+
+```bash
+docker run -d --name finance-test-db -p 5433:5432 \
+  -e POSTGRES_USER=finance -e POSTGRES_PASSWORD=finance -e POSTGRES_DB=finance_test \
+  postgres:16-alpine
+
+cd apps/api
+npm install
+DATABASE_URL="postgresql://finance:finance@localhost:5433/finance_test?schema=public" npx prisma db push
+npm run test:e2e
+```
+
+No PowerShell, defina a variável antes: `$env:DATABASE_URL="postgresql://finance:finance@localhost:5433/finance_test?schema=public"; npx prisma db push`.
+
+Front-end: `cd apps/web && npm install && npm test`.
+
+O que está coberto: isolamento entre usuários, saldo das contas, validações, dashboard na virada de mês e de ano, autenticação (rotação do refresh token, logout) e o limite de tentativas. O GitHub Actions roda tudo a cada `push`.
+
 ## Variáveis de ambiente (API)
 
 | Variável | Descrição |
@@ -142,11 +171,15 @@ A documentação interativa completa fica em `/api/docs`.
 - Há um único refresh token por usuário: entrar em outro dispositivo encerra a sessão do anterior.
 - Os tokens ficam no `localStorage`, que é vulnerável a XSS. Em produção, considere cookie `httpOnly`.
 - O Docker usa `prisma db push`. Em produção, versione as migrations e use `prisma migrate deploy`.
-- Ainda não há testes automatizados, CI, limite de requisições (*rate limit*) nem recuperação de senha.
+- O limite de tentativas fica na memória da API e é por IP. Com várias instâncias da API ou atrás de outro proxy, ele precisa de ajuste (por exemplo, Redis).
+- Ainda não há recuperação de senha, nem exportação e exclusão dos dados pelo próprio usuário.
 
 ## Próximos passos
 
-- [ ] Testes automatizados e CI com GitHub Actions
+- [x] Testes automatizados e CI com GitHub Actions
+- [x] Limite de tentativas no login e no cadastro
+- [ ] Recuperação de senha
+- [ ] Exportar e excluir os próprios dados (LGPD)
 - [ ] Orçamentos e metas por categoria
 - [ ] Transações recorrentes
 - [ ] Importação de extratos (OFX e CSV)
