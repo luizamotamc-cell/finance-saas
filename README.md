@@ -11,6 +11,7 @@ Aplicação full stack para controle financeiro pessoal: cadastro e login, conta
 - Cadastro e login com JWT (access token de 15 minutos e refresh token de 7 dias, com rotação)
 - Cada usuário vê apenas os próprios dados (coberto por testes automatizados)
 - Limite de tentativas: 5 por minuto no login e no cadastro, por IP
+- Recuperação de senha por e-mail: link de uso único, válido por 1 hora, que encerra as sessões abertas
 - Contas (conta corrente, carteira, cartão de crédito, poupança) com saldo calculado
 - Categorias de receita e despesa, personalizáveis (com cor)
 - Transações: criar, editar, excluir, filtrar por mês, conta, categoria e tipo, com paginação
@@ -134,7 +135,7 @@ No PowerShell, defina a variável antes: `$env:DATABASE_URL="postgresql://financ
 
 Front-end: `cd apps/web && npm install && npm test`.
 
-O que está coberto: isolamento entre usuários, saldo das contas, validações, dashboard na virada de mês e de ano, autenticação (rotação do refresh token, logout) e o limite de tentativas. O GitHub Actions roda tudo a cada `push`.
+O que está coberto: isolamento entre usuários, saldo das contas, validações, dashboard na virada de mês e de ano, autenticação (rotação do refresh token, logout), recuperação de senha e o limite de tentativas. O GitHub Actions roda tudo a cada `push`.
 
 ## Variáveis de ambiente (API)
 
@@ -145,6 +146,9 @@ O que está coberto: isolamento entre usuários, saldo das contas, validações,
 | `JWT_REFRESH_SECRET` | Segredo do refresh token (diferente do anterior) |
 | `CORS_ORIGIN` | Origem permitida do front-end (separe várias por vírgula) |
 | `PORT` | Porta da API (padrão: 3000) |
+| `APP_URL` | Endereço público do app, usado no link do e-mail (padrão: `http://localhost:8080`) |
+| `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS` | Servidor de e-mail (opcional). Sem `SMTP_HOST`, nenhum e-mail é enviado e o link de redefinição aparece só no log da API |
+| `MAIL_FROM` | Remetente dos e-mails (ex.: `Caixa <nao-responda@seudominio.com>`) |
 
 Nunca versione o arquivo `.env`: ele contém senhas e segredos.
 
@@ -157,6 +161,8 @@ Todas começam com `/api`. Exceto cadastro, login e refresh, exigem o cabeçalho
 | POST | `/auth/register` | Cria usuário (e já cria a conta "Carteira" e categorias padrão) |
 | POST | `/auth/login` | Login |
 | POST | `/auth/refresh` | Renova os tokens |
+| POST | `/auth/forgot-password` | Pede o e-mail de redefinição de senha (responde igual para e-mails cadastrados ou não) |
+| POST | `/auth/reset-password` | Define a nova senha com o token recebido por e-mail |
 | POST | `/auth/logout` | Encerra a sessão |
 | GET | `/auth/me` | Dados do usuário logado |
 | GET, POST, PATCH, DELETE | `/accounts` | Contas |
@@ -172,13 +178,14 @@ A documentação interativa completa fica em `/api/docs`.
 - Os tokens ficam no `localStorage`, que é vulnerável a XSS. Em produção, considere cookie `httpOnly`.
 - O Docker usa `prisma db push`. Em produção, versione as migrations e use `prisma migrate deploy`.
 - O limite de tentativas fica na memória da API e é por IP. Com várias instâncias da API ou atrás de outro proxy, ele precisa de ajuste (por exemplo, Redis).
-- Ainda não há recuperação de senha, nem exportação e exclusão dos dados pelo próprio usuário.
+- Ainda não há exportação e exclusão dos dados pelo próprio usuário.
+- Sem `SMTP_HOST`, os e-mails (como o de recuperação de senha) não são enviados: o link aparece só no log da API.
 
 ## Próximos passos
 
 - [x] Testes automatizados e CI com GitHub Actions
 - [x] Limite de tentativas no login e no cadastro
-- [ ] Recuperação de senha
+- [x] Recuperação de senha
 - [ ] Exportar e excluir os próprios dados (LGPD)
 - [ ] Orçamentos e metas por categoria
 - [ ] Transações recorrentes

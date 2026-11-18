@@ -42,6 +42,9 @@ export default function LoginPage() {
         <Field label="Senha" error={errors.password?.message}>
           <Input type="password" autoComplete="current-password" {...register('password')} />
         </Field>
+        <div className="-mt-2 text-right text-sm">
+          <Link to="/esqueci-senha" className="font-semibold text-brand underline">Esqueceu a senha?</Link>
+        </div>
         <Button type="submit" disabled={isSubmitting} className="w-full">
           {isSubmitting ? 'Entrando...' : 'Entrar'}
         </Button>

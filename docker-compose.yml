@@ -5,7 +5,7 @@ services:
       POSTGRES_USER: finance
       POSTGRES_PASSWORD: finance
       POSTGRES_DB: finance
-    ports: ["5432:5432"]
+    # Sem "ports": o banco só é acessível pela rede interna do Docker (pela API).
     volumes: [pgdata:/var/lib/postgresql/data]
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U finance -d finance"]
@@ -17,14 +17,23 @@ services:
     build: ./apps/api
     environment:
       DATABASE_URL: postgresql://finance:finance@db:5432/finance?schema=public
-      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:-dev-access-secret-troque-isto}
-      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-dev-refresh-secret-troque-isto}
+      # Sem valor padrão: o Docker se recusa a subir se os segredos não estiverem no .env.
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:?defina JWT_ACCESS_SECRET no arquivo .env}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:?defina JWT_REFRESH_SECRET no arquivo .env}
       CORS_ORIGIN: http://localhost:8080
       PORT: 3000
+      # Recuperação de senha. Sem SMTP_HOST, o link só aparece no log da API (docker compose logs api).
+      APP_URL: ${APP_URL:-http://localhost:8080}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+      MAIL_FROM: "${MAIL_FROM:-Caixa <nao-responda@localhost>}"
     depends_on:
       db:
         condition: service_healthy
-    ports: ["3000:3000"]
+    # Sem "ports": a API só é acessível pelo nginx (serviço "web"), que repassa /api/.
+    # Assim ninguém consegue chamá-la direto nem forjar o IP para escapar do limite de tentativas.
 
   web:
     build: ./apps/web

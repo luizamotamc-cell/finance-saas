@@ -27,9 +27,23 @@ model User {
   refreshTokenHash String?
   createdAt        DateTime @default(now())
 
-  accounts     Account[]
-  categories   Category[]
-  transactions Transaction[]
+  accounts            Account[]
+  categories          Category[]
+  transactions        Transaction[]
+  passwordResetTokens PasswordResetToken[]
+}
+
+// Link de redefinição de senha: guardamos só o hash do token (como fazemos com o refresh token).
+model PasswordResetToken {
+  id        String   @id @default(uuid())
+  userId    String
+  tokenHash String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }
 
 model Account {

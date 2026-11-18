@@ -1,10 +1,15 @@
 import { INestApplication, ValidationPipe } from '@nestjs/common';
-import { Test } from '@nestjs/testing';
+import { Test, TestingModuleBuilder } from '@nestjs/testing';
 import request from 'supertest';
 import { AppModule } from '../src/app.module';
 
-export async function createApp(): Promise<INestApplication> {
-  const mod = await Test.createTestingModule({ imports: [AppModule] }).compile();
+/** `customize` permite trocar peças do app nos testes (por exemplo, o envio de e-mail). */
+export async function createApp(
+  customize?: (builder: TestingModuleBuilder) => TestingModuleBuilder,
+): Promise<INestApplication> {
+  let builder = Test.createTestingModule({ imports: [AppModule] });
+  if (customize) builder = customize(builder);
+  const mod = await builder.compile();
   const app = mod.createNestApplication();
   // Mesma configuração do main.ts
   app.setGlobalPrefix('api');
