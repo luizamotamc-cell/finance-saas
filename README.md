@@ -27,12 +27,15 @@ Aplicação full stack para controle financeiro pessoal: cadastro e login, conta
 | Banco de dados | PostgreSQL 16 |
 | Testes | Jest e Supertest (API), Vitest (front) |
 | Infraestrutura | Docker e Docker Compose, GitHub Actions (CI) |
+| Hospedagem (exemplo) | Render (site e API) e Neon (PostgreSQL), ambos em planos gratuitos |
 
 ## Estrutura do projeto
 
 ```
 finance-saas/
 ├── docker-compose.yml
+├── Dockerfile                  # contêiner único: a API também entrega o site (hospedagem)
+├── docker-compose.single.yml   # teste local desse contêiner único
 ├── .env.example
 ├── README.md
 ├── .github/workflows/ci.yml   # testes a cada push
@@ -137,6 +140,58 @@ Front-end: `cd apps/web && npm install && npm test`.
 
 O que está coberto: isolamento entre usuários, saldo das contas, validações, dashboard na virada de mês e de ano, autenticação (rotação do refresh token, logout), recuperação de senha e o limite de tentativas. O GitHub Actions roda tudo a cada `push`.
 
+## Hospedagem gratuita (Render + Neon)
+
+O `Dockerfile` da raiz monta um **contêiner único**: a API também entrega o site. Teste-o no seu computador antes de publicar:
+
+```bash
+docker compose -f docker-compose.single.yml up --build    # abre em http://localhost:8081
+```
+
+**1. Banco (Neon).** Crie um projeto na **mesma região** do Render (por exemplo, AWS US East 2, Ohio): cada tela faz várias consultas, então API e banco devem ficar perto. No botão *Connect* há duas connection strings: a *pooled* (com `-pooler` no endereço) e a direta.
+
+**2. Site e API (Render).** *New → Web Service*, este repositório, runtime *Docker*, plano *Free*, mesma região do banco, *Health Check Path* `/api/health`. Variáveis de ambiente:
+
+| Variável | Valor |
+|---|---|
+| `DATABASE_URL` | string *pooled* do Neon + `&pgbouncer=true&connect_timeout=30` |
+| `DIRECT_URL` | string direta do Neon + `&connect_timeout=30` (usada só para criar as tabelas ao iniciar) |
+| `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET` | dois valores aleatórios e diferentes (o botão *Generate* do Render serve) |
+| `APP_URL`, `CORS_ORIGIN` | endereço público do serviço (`https://...onrender.com`), sem barra no final |
+| `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `MAIL_FROM` | servidor de e-mail (veja abaixo) |
+
+Não defina `PORT`: o Render define sozinho. Nunca coloque senhas no repositório; elas ficam só no painel.
+
+**3. E-mail (recuperação de senha).** O plano gratuito do Render **bloqueia as portas SMTP 25, 465 e 587** desde setembro de 2025. Com o Brevo (plano gratuito, 300 e-mails por dia), use a porta **2525**:
+
+| Variável | Valor |
+|---|---|
+| `SMTP_HOST` | `smtp-relay.brevo.com` |
+| `SMTP_PORT` | `2525` |
+| `SMTP_USER` | o *login* mostrado em *Settings → SMTP & API → SMTP* (não é o seu e-mail) |
+| `SMTP_PASS` | uma *chave SMTP* gerada nessa mesma página (não é a chave de API) |
+| `MAIL_FROM` | `Caixa <endereço confirmado como remetente no Brevo>` |
+
+Sem um domínio próprio autenticado (DKIM e DMARC), os e-mails podem cair no spam.
+
+**4. IP do usuário e limite de tentativas.** O limite de login usa o IP real de quem acessa, e isso depende de quantos proxies existem na frente da API (`TRUST_PROXY`, padrão `1`). Depois de publicar, teste: erre a senha 6 vezes pelo computador (a 6ª deve dar `429`) e tente uma vez pelo celular com dados móveis (deve responder "credenciais inválidas", e não bloquear).
+
+**Limites do plano gratuito:** o serviço do Render dorme após 15 minutos sem acesso e leva cerca de 1 minuto para acordar; o banco do Neon também suspende quando parado, e o plano tem poucas horas de histórico e 1 GB. O endereço `/api/health` não consulta o banco, de propósito, para não gastar as horas de computação do Neon.
+
+## Backup do banco
+
+O histórico do plano gratuito do Neon é curto. Baixe uma cópia completa de vez em quando (PowerShell, com o Docker aberto). A connection string direta é uma senha: digite-a só quando o comando pedir.
+
+```powershell
+$env:DIRECT_URL = Read-Host "Cole a DIRECT_URL do Neon"
+New-Item -ItemType Directory -Force "$HOME\Documents\caixa-backups" | Out-Null
+$arquivo = "caixa-" + (Get-Date -Format "yyyy-MM-dd-HHmm") + ".sql"
+docker run --rm -v "$HOME\Documents\caixa-backups:/backup" postgres:alpine pg_dump --no-owner --no-privileges -f "/backup/$arquivo" $env:DIRECT_URL
+Remove-Item Env:\DIRECT_URL
+```
+
+O arquivo `.sql` contém os dados financeiros dos usuários: guarde-o em local privado e nunca o envie ao GitHub. Se o `pg_dump` reclamar de versão do servidor, use a imagem do Postgres com a mesma versão principal do projeto no Neon.
+
 ## Variáveis de ambiente (API)
 
 | Variável | Descrição |
@@ -149,6 +204,9 @@ O que está coberto: isolamento entre usuários, saldo das contas, validações,
 | `APP_URL` | Endereço público do app, usado no link do e-mail (padrão: `http://localhost:8080`) |
 | `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS` | Servidor de e-mail (opcional). Sem `SMTP_HOST`, nenhum e-mail é enviado e o link de redefinição aparece só no log da API |
 | `MAIL_FROM` | Remetente dos e-mails (ex.: `Caixa <nao-responda@seudominio.com>`) |
+| `DIRECT_URL` | Conexão direta com o banco, usada só para criar as tabelas ao iniciar (necessária no Neon; opcional nos demais casos) |
+| `TRUST_PROXY` | Quantos proxies existem na frente da API, para identificar o IP do usuário (padrão: 1) |
+| `WEB_DIST_DIR` | Pasta com o site compilado: se existir, a API também entrega o site (definida no `Dockerfile` da raiz) |
 
 Nunca versione o arquivo `.env`: ele contém senhas e segredos.
 
@@ -165,6 +223,7 @@ Todas começam com `/api`. Exceto cadastro, login e refresh, exigem o cabeçalho
 | POST | `/auth/reset-password` | Define a nova senha com o token recebido por e-mail |
 | POST | `/auth/logout` | Encerra a sessão |
 | GET | `/auth/me` | Dados do usuário logado |
+| GET | `/health` | Verificação de saúde (sem login e sem consultar o banco) |
 | GET, POST, PATCH, DELETE | `/accounts` | Contas |
 | GET, POST, PATCH, DELETE | `/categories` | Categorias |
 | GET, POST, PATCH, DELETE | `/transactions` | Transações (filtros: `from`, `to`, `accountId`, `categoryId`, `type`, `page`, `limit`) |
@@ -180,6 +239,8 @@ A documentação interativa completa fica em `/api/docs`.
 - O limite de tentativas fica na memória da API e é por IP. Com várias instâncias da API ou atrás de outro proxy, ele precisa de ajuste (por exemplo, Redis).
 - Ainda não há exportação e exclusão dos dados pelo próprio usuário.
 - Sem `SMTP_HOST`, os e-mails (como o de recuperação de senha) não são enviados: o link aparece só no log da API.
+- **O cadastro é aberto:** quem souber o endereço pode criar uma conta. Não divulgue o endereço publicamente.
+- No plano gratuito do Render o serviço dorme após 15 minutos parado, e o do Neon tem histórico curto: faça backups (veja acima).
 
 ## Próximos passos
 
@@ -191,7 +252,9 @@ A documentação interativa completa fica em `/api/docs`.
 - [ ] Transações recorrentes
 - [ ] Importação de extratos (OFX e CSV)
 - [ ] Planos pagos e cobrança (Stripe)
-- [ ] Deploy
+- [x] Deploy gratuito (Render + Neon)
+- [ ] Cadastro por convite (hoje o cadastro é aberto)
+- [ ] Backup automático do banco
 
 ## Licença
 
