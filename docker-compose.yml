@@ -22,6 +22,8 @@ services:
       JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:?defina JWT_REFRESH_SECRET no arquivo .env}
       CORS_ORIGIN: http://localhost:8080
       PORT: 3000
+      # Se preenchido, o cadastro exige este código de convite. Vazio = cadastro aberto.
+      INVITE_CODE: ${INVITE_CODE:-}
       # Recuperação de senha. Sem SMTP_HOST, o link só aparece no log da API (docker compose logs api).
       APP_URL: ${APP_URL:-http://localhost:8080}
       SMTP_HOST: ${SMTP_HOST:-}

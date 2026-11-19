@@ -1,5 +1,5 @@
 import { Transform } from 'class-transformer';
-import { IsEmail, IsNotEmpty, IsString, MaxLength, MinLength } from 'class-validator';
+import { IsEmail, IsNotEmpty, IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
 
 const normalizeEmail = ({ value }: { value: unknown }) =>
   typeof value === 'string' ? value.trim().toLowerCase() : value;
@@ -13,6 +13,10 @@ export class RegisterDto {
 
   @IsString() @MinLength(8) @MaxLength(72)
   password: string;
+
+  /** Só é exigido quando a variável INVITE_CODE está definida no servidor. */
+  @IsOptional() @IsString() @MaxLength(100)
+  inviteCode?: string;
 }
 
 export class LoginDto {

@@ -7,7 +7,7 @@ interface AuthCtx {
   user: User | null;
   loading: boolean;
   login: (email: string, password: string) => Promise<void>;
-  register: (name: string, email: string, password: string) => Promise<void>;
+  register: (name: string, email: string, password: string, inviteCode?: string) => Promise<void>;
   logout: () => Promise<void>;
 }
 
@@ -44,7 +44,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     user,
     loading,
     login: (email, password) => authenticate('/auth/login', { email, password }),
-    register: (name, email, password) => authenticate('/auth/register', { name, email, password }),
+    register: (name, email, password, inviteCode) =>
+      authenticate('/auth/register', { name, email, password, ...(inviteCode ? { inviteCode } : {}) }),
     logout: async () => {
       try { await api('/auth/logout', { method: 'POST' }); } catch { /* ignora */ }
       tokenStore.clear();

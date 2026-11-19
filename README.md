@@ -11,6 +11,7 @@ Aplicação full stack para controle financeiro pessoal: cadastro e login, conta
 - Cadastro e login com JWT (access token de 15 minutos e refresh token de 7 dias, com rotação)
 - Cada usuário vê apenas os próprios dados (coberto por testes automatizados)
 - Limite de tentativas: 5 por minuto no login e no cadastro, por IP
+- Cadastro protegido por código de convite (opcional, variável `INVITE_CODE`)
 - Recuperação de senha por e-mail: link de uso único, válido por 1 hora, que encerra as sessões abertas
 - Contas (conta corrente, carteira, cartão de crédito, poupança) com saldo calculado
 - Categorias de receita e despesa, personalizáveis (com cor)
@@ -158,6 +159,7 @@ docker compose -f docker-compose.single.yml up --build    # abre em http://local
 | `DIRECT_URL` | string direta do Neon + `&connect_timeout=30` (usada só para criar as tabelas ao iniciar) |
 | `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET` | dois valores aleatórios e diferentes (o botão *Generate* do Render serve) |
 | `APP_URL`, `CORS_ORIGIN` | endereço público do serviço (`https://...onrender.com`), sem barra no final |
+| `INVITE_CODE` | código de convite exigido no cadastro (recomendado). Gere um com `node -e "console.log(require('crypto').randomBytes(9).toString('base64url'))"` e passe-o só para quem você convidar |
 | `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `MAIL_FROM` | servidor de e-mail (veja abaixo) |
 
 Não defina `PORT`: o Render define sozinho. Nunca coloque senhas no repositório; elas ficam só no painel.
@@ -206,6 +208,7 @@ O arquivo `.sql` contém os dados financeiros dos usuários: guarde-o em local p
 | `MAIL_FROM` | Remetente dos e-mails (ex.: `Caixa <nao-responda@seudominio.com>`) |
 | `DIRECT_URL` | Conexão direta com o banco, usada só para criar as tabelas ao iniciar (necessária no Neon; opcional nos demais casos) |
 | `TRUST_PROXY` | Quantos proxies existem na frente da API, para identificar o IP do usuário (padrão: 1) |
+| `INVITE_CODE` | Se preenchido, o cadastro exige esse código (campo "Código de convite"). Vazio ou ausente: cadastro aberto |
 | `WEB_DIST_DIR` | Pasta com o site compilado: se existir, a API também entrega o site (definida no `Dockerfile` da raiz) |
 
 Nunca versione o arquivo `.env`: ele contém senhas e segredos.
@@ -239,7 +242,7 @@ A documentação interativa completa fica em `/api/docs`.
 - O limite de tentativas fica na memória da API e é por IP. Com várias instâncias da API ou atrás de outro proxy, ele precisa de ajuste (por exemplo, Redis).
 - Ainda não há exportação e exclusão dos dados pelo próprio usuário.
 - Sem `SMTP_HOST`, os e-mails (como o de recuperação de senha) não são enviados: o link aparece só no log da API.
-- **O cadastro é aberto:** quem souber o endereço pode criar uma conta. Não divulgue o endereço publicamente.
+- **Sem `INVITE_CODE`, o cadastro é aberto:** quem souber o endereço pode criar uma conta. Defina o código em produção e não divulgue o endereço publicamente.
 - No plano gratuito do Render o serviço dorme após 15 minutos parado, e o do Neon tem histórico curto: faça backups (veja acima).
 
 ## Próximos passos
@@ -253,7 +256,7 @@ A documentação interativa completa fica em `/api/docs`.
 - [ ] Importação de extratos (OFX e CSV)
 - [ ] Planos pagos e cobrança (Stripe)
 - [x] Deploy gratuito (Render + Neon)
-- [ ] Cadastro por convite (hoje o cadastro é aberto)
+- [x] Código de convite no cadastro (`INVITE_CODE`)
 - [ ] Backup automático do banco
 
 ## Licença

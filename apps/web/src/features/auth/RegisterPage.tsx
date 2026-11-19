@@ -10,6 +10,7 @@ const schema = z.object({
   name: z.string().trim().min(1, 'Informe seu nome'),
   email: z.string().email('Informe um e-mail válido'),
   password: z.string().min(8, 'Use pelo menos 8 caracteres'),
+  inviteCode: z.string().trim().optional(),
 });
 type Values = z.infer<typeof schema>;
 
@@ -26,7 +27,7 @@ export default function RegisterPage() {
   const onSubmit = handleSubmit(async (v) => {
     setError('');
     try {
-      await signUp(v.name, v.email, v.password);
+      await signUp(v.name, v.email, v.password, v.inviteCode);
       navigate('/');
     } catch (e) {
       setError((e as Error).message);
@@ -45,6 +46,9 @@ export default function RegisterPage() {
         </Field>
         <Field label="Senha" error={errors.password?.message}>
           <Input type="password" autoComplete="new-password" {...register('password')} />
+        </Field>
+        <Field label="Código de convite" error={errors.inviteCode?.message}>
+          <Input autoComplete="off" placeholder="Peça a quem te convidou" {...register('inviteCode')} />
         </Field>
         <Button type="submit" disabled={isSubmitting} className="w-full">
           {isSubmitting ? 'Criando...' : 'Criar conta'}

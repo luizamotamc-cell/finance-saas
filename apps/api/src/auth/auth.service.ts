@@ -1,8 +1,15 @@
-import { BadRequestException, ConflictException, Injectable, Logger, UnauthorizedException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  ForbiddenException,
+  Injectable,
+  Logger,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcryptjs';
-import { createHash, randomBytes, randomUUID } from 'crypto';
+import { createHash, randomBytes, randomUUID, timingSafeEqual } from 'crypto';
 import { MailService } from '../mail/mail.service';
 import { resetPasswordEmail } from '../mail/templates';
 import { PrismaService } from '../prisma/prisma.service';
@@ -37,7 +44,22 @@ export class AuthService {
     private mail: MailService,
   ) {}
 
+  /**
+   * Se INVITE_CODE estiver definido no servidor, o cadastro exige esse código.
+   * Vazio ou ausente = cadastro aberto. Roda ANTES de qualquer consulta ao banco, para quem não
+   * tem o código nem conseguir descobrir se um e-mail já está cadastrado.
+   */
+  private assertInvite(code?: string) {
+    const required = (this.config.get<string>('INVITE_CODE') ?? '').trim();
+    if (!required) return;
+    // Compara os hashes: tempo constante e sem revelar o tamanho do código.
+    const given = createHash('sha256').update((code ?? '').trim()).digest();
+    const expected = createHash('sha256').update(required).digest();
+    if (!timingSafeEqual(given, expected)) throw new ForbiddenException('Código de convite inválido.');
+  }
+
   async register(dto: RegisterDto) {
+    this.assertInvite(dto.inviteCode);
     const exists = await this.prisma.user.findUnique({ where: { email: dto.email } });
     if (exists) throw new ConflictException('Este e-mail já está cadastrado');
 
